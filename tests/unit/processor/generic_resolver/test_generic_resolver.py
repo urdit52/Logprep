@@ -1,6 +1,6 @@
 from logging import getLogger
 import tempfile
-from os import path
+from os import path, remove
 from shutil import rmtree
 from pathlib import Path
 from json import dumps
@@ -10,8 +10,11 @@ import pytest
 
 pytest.importorskip('logprep.processor.generic_resolver')
 
+from logprep.processor.base.exceptions import InvalidRuleFileError
+
 from logprep.processor.generic_resolver.factory import GenericResolverFactory
-from logprep.processor.generic_resolver.processor import GenericResolver, DuplicationError, GenericResolverError
+from logprep.processor.generic_resolver.processor import (GenericResolver, DuplicationError,
+                                                          GenericResolverError)
 
 logger = getLogger()
 rules_dir = 'tests/testdata/generic_resolver/rules'
@@ -43,6 +46,17 @@ def temp_rule_dir():
     remove_dir_if_exists(temp_rule_dir)
 
 
+@pytest.fixture(autouse=True)
+def remove_hyperscan_db():
+    pass
+    yield
+    try:
+        remove(path.abspath(path.join(path.dirname(__file__), '../../../..',
+                                      'logprep/processor/generic_resolver/hyperscan_dbs/test_rule.db')))
+    except FileNotFoundError:
+        pass
+
+
 class TestGenericResolver:
     def test_resolve_generic_instantiates(self, temp_rule_dir, generic_resolver_config):
         rule = [{
@@ -53,11 +67,13 @@ class TestGenericResolver:
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         assert isinstance(generic_resolver, GenericResolver)
 
-    def test_resolve_generic_existing_not_dotted_field_without_conflict_match(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_not_dotted_field_without_conflict_match(self, temp_rule_dir,
+                                                                              generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
@@ -68,7 +84,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': 'something HELLO1',
@@ -81,8 +98,9 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_not_dotted_field_without_conflict_and_to_list_entries_match(self, temp_rule_dir,
-                                                                                                  generic_resolver_config):
+    def test_resolve_generic_existing_not_dotted_field_without_conflict_and_to_list_entries_match(
+            self, temp_rule_dir,
+            generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
@@ -96,7 +114,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': 'something HELLO1',
@@ -116,7 +135,9 @@ class TestGenericResolver:
         generic_resolver.process(document)
         assert document == expected
 
-    def test_resolve_generic_existing_not_dotted_field_without_conflict_no_match(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_not_dotted_field_without_conflict_no_match(self,
+                                                                                 temp_rule_dir,
+                                                                                 generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
@@ -129,7 +150,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {'to_resolve': 'something no'}
         document = {'to_resolve': 'something no'}
@@ -138,7 +160,8 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_match(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match(self, temp_rule_dir,
+                                                                              generic_resolver_config):
         rule = [{
             'filter': 'to.resolve',
             'generic_resolver': {
@@ -151,7 +174,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to': {'resolve': 'something HELLO1'},
@@ -164,19 +188,22 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file(self,
+                                                                                        temp_rule_dir,
+                                                                                        generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
                 'field_mapping': {'to_resolve': 'resolved'},
-                'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_from_file': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
                 'resolve_list': {'FOO': 'BAR'}
             }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': 'ab',
@@ -192,16 +219,17 @@ class TestGenericResolver:
     def test_resolve_from_file_and_from_list(self, temp_rule_dir, generic_resolver_config):
         rule = [{
             'filter': 'to_resolve_1 AND to_resolve_2',
-                'generic_resolver': {
-                    'field_mapping': {'to_resolve_1': 'resolved_1', 'to_resolve_2': 'resolved_2'},
-                    'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
-                    'resolve_list': {'fg': 'fg_server_type'}
-                }
+            'generic_resolver': {
+                'field_mapping': {'to_resolve_1': 'resolved_1', 'to_resolve_2': 'resolved_2'},
+                'resolve_from_file': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
+                'resolve_list': {'fg': 'fg_server_type'}
+            }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve_1': 'ab',
@@ -216,19 +244,22 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_no_match_from_fileF(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_no_match_from_fileF(self,
+                                                                                            temp_rule_dir,
+                                                                                            generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
                 'field_mapping': {'to_resolve': 'resolved'},
-                'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_from_file': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
                 'resolve_list': {'FOO': 'BAR'}
             }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': 'not_in_list',
@@ -240,19 +271,21 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list(
+            self, temp_rule_dir, generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
                 'field_mapping': {'to_resolve': 'resolved'},
-                'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_from_file': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
                 'append_to_list': True
             }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': '12ab34',
@@ -267,19 +300,21 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list_has_conflict(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list_has_conflict(
+            self, temp_rule_dir, generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
                 'field_mapping': {'to_resolve': 'resolved'},
-                'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_from_file': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
                 'append_to_list': True
             }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': '12ab34',
@@ -295,19 +330,21 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list_has_conflict_and_different_inputs(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list_has_conflict_and_different_inputs(
+            self, temp_rule_dir, generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
                 'field_mapping': {'to_resolve': 'resolved', 'other_to_resolve': 'resolved'},
-                'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_from_file': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
                 'append_to_list': True
             }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {
             'to_resolve': '12ab34',
@@ -325,44 +362,25 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_group_mapping_does_not_exist(self, temp_rule_dir, generic_resolver_config):
-        rule = [{
-            'filter': 'to_resolve',
-            'generic_resolver': {
-                'field_mapping': {'to_resolve': 'resolved'},
-                'resolve_from_file': {'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml', 'pattern': r'\d*(?P<foobar>[a-z]+)\d*'},
-                'resolve_list': {'FOO': 'BAR'}
-            }
-        }]
-
-        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
-
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
-
-        document = {'to_resolve': 'ab'}
-
-        with pytest.raises(GenericResolverError, match=r'GenericResolver \(test-generic-resolver\)\: Mapping group is missing in mapping file pattern!'):
-            generic_resolver.process(document)
-
-    def test_resolve_generic_match_from_file_and_file_does_not_exist(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_match_from_file_and_file_does_not_exist(self, temp_rule_dir,
+                                                                     generic_resolver_config):
         rule = [{
             'filter': 'to.resolve',
             'generic_resolver': {
                 'field_mapping': {'to.resolve': 'resolved'},
-                'resolve_from_file': {'path': 'foo', 'pattern': 'bar'}
+                'resolve_from_file': 'foo'
             }
         }]
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        with pytest.raises(InvalidRuleFileError):
+            GenericResolverFactory.create('test-generic-resolver', generic_resolver_config,
+                                          logger)
 
-        document = {'to': {'resolve': 'something HELLO1'}}
-
-        with pytest.raises(GenericResolverError, match=r'GenericResolver \(test-generic-resolver\)\: Additions file \'foo\' not found!'):
-            generic_resolver.process(document)
-
-    def test_resolve_generic_existing_dotted_src_field_without_conflict_no_match(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_no_match(self,
+                                                                                 temp_rule_dir,
+                                                                                 generic_resolver_config):
         rule = [{
             'filter': 'to.resolve',
             'generic_resolver': {
@@ -375,7 +393,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {'to': {'resolve': 'something no'}}
         document = {'to': {'resolve': 'something no'}}
@@ -384,7 +403,8 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_dest_field_without_conflict_match(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_dest_field_without_conflict_match(self, temp_rule_dir,
+                                                                               generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
@@ -397,7 +417,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {'to_resolve': 'something HELLO1', 're': {'solved': 'Greeting'}}
         document = {'to_resolve': 'something HELLO1'}
@@ -406,7 +427,9 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_dest_field_without_conflict_no_match(self, temp_rule_dir, generic_resolver_config):
+    def test_resolve_generic_existing_dotted_dest_field_without_conflict_no_match(self,
+                                                                                  temp_rule_dir,
+                                                                                  generic_resolver_config):
         rule = [{
             'filter': 'to_resolve',
             'generic_resolver': {
@@ -419,7 +442,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {'to_resolve': 'something no'}
         document = {'to_resolve': 'something no'}
@@ -428,7 +452,8 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_and_dest_field_without_conflict_match(self, temp_rule_dir,
+    def test_resolve_generic_existing_dotted_src_and_dest_field_without_conflict_match(self,
+                                                                                       temp_rule_dir,
                                                                                        generic_resolver_config):
         rule = [{
             'filter': 'to.resolve',
@@ -442,7 +467,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {'to': {'resolve': 'something HELLO1'}, 're': {'solved': 'Greeting'}}
         document = {'to': {'resolve': 'something HELLO1'}}
@@ -451,7 +477,8 @@ class TestGenericResolver:
 
         assert document == expected
 
-    def test_resolve_generic_existing_dotted_src_and_dest_field_with_conflict_match(self, temp_rule_dir,
+    def test_resolve_generic_existing_dotted_src_and_dest_field_with_conflict_match(self,
+                                                                                    temp_rule_dir,
                                                                                     generic_resolver_config):
         rule = [{
             'filter': 'to.resolve',
@@ -465,7 +492,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         document = {'to': {'resolve': 'something HELLO1'}, 're': {'solved': 'I already exist!'}}
 
@@ -473,7 +501,7 @@ class TestGenericResolver:
             generic_resolver.process(document)
 
     def test_resolve_generic_with_multiple_match_first_only(self, temp_rule_dir,
-                                                                                    generic_resolver_config):
+                                                            generic_resolver_config):
         rule = [{
             'filter': 'to.resolve',
             'generic_resolver': {
@@ -488,7 +516,8 @@ class TestGenericResolver:
 
         self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
 
-        generic_resolver = GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
 
         expected = {'to': {'resolve': 'something HELLO1'}, 're': {'solved': 'Greeting'}}
         document = {'to': {'resolve': 'something HELLO1'}}
@@ -496,6 +525,423 @@ class TestGenericResolver:
         generic_resolver.process(document)
 
         assert document == expected
+
+    @staticmethod
+    def setup_multi_rule(generic_resolver_config, rule, temp_rule_dir):
+        with open(path.join(temp_rule_dir, 'test_rule.json'), 'w') as test_rule:
+            test_rule.writelines(dumps(rule))
+        generic_resolver_config['rules'] = [temp_rule_dir]
+
+
+class TestGenericResolverWithPatterns:
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file(self,
+                                                                                        temp_rule_dir,
+                                                                                        generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_list': {'FOO': 'BAR'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': 'ab',
+            'resolved': 'ab_server_type'
+        }
+
+        document = {'to_resolve': 'ab'}
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_and_unbalanced_parenthesis(
+            self,
+            temp_rule_dir,
+            generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)c)\d*'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        with pytest.raises(Exception, match='unbalanced parenthesis'):
+            GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_and_escaped_parenthesis(
+            self,
+            temp_rule_dir,
+            generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+\)c)\d*'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': 'ab)c',
+            'resolved': 'ab)c_server_type'
+        }
+
+        document = {'to_resolve': 'ab)c'}
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_and_escaped_parenthesis_and_backslash(
+            self,
+            temp_rule_dir,
+            generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+\\\)c)\d*'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': r'ab\)c',
+            'resolved': r'ab\)c_server_type'
+        }
+
+        document = {'to_resolve': r'ab\)c'}
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_and_escaped_to_unbalanced_parenthesis(
+            self,
+            temp_rule_dir,
+            generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+\\\\)c)\d*'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        with pytest.raises(Exception, match='unbalanced parenthesis'):
+            GenericResolverFactory.create('test-generic-resolver', generic_resolver_config, logger)
+
+    def test_resolve_from_file_and_from_list(self, temp_rule_dir, generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve_1 AND to_resolve_2',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve_1': 'resolved_1', 'to_resolve_2': 'resolved_2'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_list': {'fg': 'fg_server_type'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve_1': 'ab',
+            'to_resolve_2': 'fg',
+            'resolved_1': 'ab_server_type',
+            'resolved_2': 'fg_server_type'
+        }
+
+        document = {'to_resolve_1': 'ab', 'to_resolve_2': 'fg'}
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_no_match_from_file(self,
+                                                                                           temp_rule_dir,
+                                                                                           generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'resolve_list': {'FOO': 'BAR'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': 'not_in_list',
+        }
+
+        document = {'to_resolve': 'not_in_list'}
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list(
+            self, temp_rule_dir, generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'append_to_list': True
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': '12ab34',
+            'resolved': ['ab_server_type']
+        }
+
+        document = {
+            'to_resolve': '12ab34'
+        }
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_with_parenthesis_in_mapping(self, temp_rule_dir,
+                                                         generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>(([a-z])+)())\d*'},
+                'append_to_list': True
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': '12ab34',
+            'resolved': ['ab_server_type']
+        }
+
+        document = {
+            'to_resolve': '12ab34'
+        }
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_with_partially_matching_mapping(self, temp_rule_dir,
+                                                             generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'append_to_list': True
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': 'gh',
+            'resolved': ['gh_server_type']
+        }
+
+        document = {
+            'to_resolve': 'gh'
+        }
+
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_no_matching_pattern(self, temp_rule_dir, generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[123]+)\d*'},
+                'append_to_list': True
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        document = {
+            'to_resolve': '12ab34'
+        }
+
+        with pytest.raises(GenericResolverError,
+                           match=r'No patter to compile for hyperscan database!'):
+            generic_resolver.process(document)
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list_has_conflict(
+            self, temp_rule_dir, generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'append_to_list': True
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': '12ab34',
+            'resolved': ['ab_server_type']
+        }
+
+        document = {
+            'to_resolve': '12ab34'
+        }
+
+        generic_resolver.process(document)
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_with_list_has_conflict_and_different_inputs(
+            self, temp_rule_dir, generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved', 'other_to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping_without_patterns.yml',
+                    'pattern': r'\d*(?P<mapping>[a-z]+)\d*'},
+                'append_to_list': True
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        expected = {
+            'to_resolve': '12ab34',
+            'other_to_resolve': '00de11',
+            'resolved': ['ab_server_type', 'de_server_type']
+        }
+
+        document = {
+            'to_resolve': '12ab34',
+            'other_to_resolve': '00de11'
+        }
+
+        generic_resolver.process(document)
+        generic_resolver.process(document)
+
+        assert document == expected
+
+    def test_resolve_generic_existing_dotted_src_field_without_conflict_match_from_file_group_mapping_does_not_exist(
+            self, temp_rule_dir, generic_resolver_config):
+        rule = [{
+            'filter': 'to_resolve',
+            'generic_resolver': {
+                'field_mapping': {'to_resolve': 'resolved'},
+                'resolve_from_file': {
+                    'path': 'tests/testdata/unit/generic_resolver/resolve_mapping.yml',
+                    'pattern': r'\d*(?P<foobar>[a-z]+)\d*'},
+                'resolve_list': {'FOO': 'BAR'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        generic_resolver = GenericResolverFactory.create('test-generic-resolver',
+                                                         generic_resolver_config, logger)
+
+        document = {'to_resolve': 'ab'}
+        generic_resolver.process(document)
+
+    def test_resolve_generic_match_from_file_and_file_does_not_exist(self, temp_rule_dir,
+                                                                     generic_resolver_config):
+        rule = [{
+            'filter': 'to.resolve',
+            'generic_resolver': {
+                'field_mapping': {'to.resolve': 'resolved'},
+                'resolve_from_file': {'path': 'foo', 'pattern': 'bar'}
+            }
+        }]
+
+        self.setup_multi_rule(generic_resolver_config, rule, temp_rule_dir)
+
+        with pytest.raises(InvalidRuleFileError,
+                           match=r'\'test-generic-resolver\', \'Invalid rule file "/tmp/test_preprocessor_rules/test_rule.json"'):
+            GenericResolverFactory.create('test-generic-resolver',
+                                          generic_resolver_config, logger)
 
     @staticmethod
     def setup_multi_rule(generic_resolver_config, rule, temp_rule_dir):

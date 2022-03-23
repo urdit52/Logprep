@@ -12,7 +12,8 @@ class GenericResolverFactory(BaseFactory):
         """Create a generic resolver."""
         GenericResolverFactory._check_configuration(configuration)
 
-        generic_resolver = GenericResolver(name, configuration.get('tree_config'), logger)
+        generic_resolver = GenericResolver(name, configuration.get('tree_config'),
+                                           configuration.get('hyperscan_db_path'), logger)
         generic_resolver.add_rules_from_directory(configuration['rules'])
 
         return generic_resolver
