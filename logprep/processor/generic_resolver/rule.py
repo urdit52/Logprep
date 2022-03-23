@@ -89,7 +89,6 @@ class GenericResolverRule(Rule):
                                             replaced_add_dict[replaced_pattern] = value
                             add_dict = replaced_add_dict
                         self._resolve_list.update(add_dict)
-                        print(self._resolve_list)
                     else:
                         raise InvalidGenericResolverDefinition(
                             f'Additions file \'{self.resolve_from_file} must be a dictionary with '
