@@ -1,22 +1,19 @@
 """This module contains functionality for resolving log event values using regex lists."""
 
 import errno
-from time import time
-from typing import List
 from logging import Logger, DEBUG
-
+from multiprocessing import current_process
 from os import walk, path, makedirs
 from os.path import isdir, realpath, join
-
-from multiprocessing import current_process
+from time import time
+from typing import List
 
 from hyperscan import Database, HS_FLAG_SINGLEMATCH, HS_FLAG_CASELESS, loadb, dumpb
 
-from logprep.processor.base.processor import RuleBasedProcessor
-from logprep.processor.generic_resolver.rule import GenericResolverRule
 from logprep.processor.base.exceptions import (NotARulesDirectoryError, InvalidRuleDefinitionError,
                                                InvalidRuleFileError)
-
+from logprep.processor.base.processor import RuleBasedProcessor
+from logprep.processor.generic_resolver.rule import GenericResolverRule
 from logprep.util.processor_stats import ProcessorStats
 from logprep.util.time_measurement import TimeMeasurement
 
