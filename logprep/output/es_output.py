@@ -113,8 +113,8 @@ class ElasticsearchOutput(Output):
 
         """
         self._message_backlog[self._processed_cnt] = document
-        self._processed_cnt += 1
-        if self._processed_cnt == self._message_backlog_size:
+        currently_processed_cnt = self._processed_cnt + 1
+        if currently_processed_cnt == self._message_backlog_size:
             try:
                 helpers.bulk(self._es, self._message_backlog)
             except SerializationError as error:
@@ -129,6 +129,8 @@ class ElasticsearchOutput(Output):
 
             if self._input:
                 self._input.batch_finished_callback()
+        else:
+            self._processed_cnt = currently_processed_cnt
 
     def store(self, document: dict):
         """Store a document in the index.
