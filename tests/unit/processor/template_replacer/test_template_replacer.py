@@ -68,7 +68,8 @@ class TestWinMessageReplacer:
 
         template_replacer.process(document)
 
-        assert document.get('message') is None
+        assert document.get('message')
+        assert document['message'] == 'Test %1 Test %2'
 
     def test_replace_dotted_message_via_template(self, template_replacer_dotted_field):
         assert template_replacer_dotted_field.ps.processed_count == 0
@@ -80,6 +81,52 @@ class TestWinMessageReplacer:
         assert document.get('dotted')
         assert document['dotted'].get('message')
         assert document['dotted']['message'] == 'Test %1 Test %2'
+
+    def test_replace_non_existing_dotted_message_via_template(self, template_replacer_dotted_field):
+        assert template_replacer_dotted_field.ps.processed_count == 0
+        document = {'winlog': {'channel': 'System', 'provider_name': 'Test', 'event_id': 123}}
+
+        template_replacer_dotted_field.process(document)
+
+        assert document.get('dotted')
+        assert document['dotted'].get('message')
+        assert document['dotted']['message'] == 'Test %1 Test %2'
+
+    def test_replace_partly_existing_dotted_message_via_template(self,
+                                                                 template_replacer_dotted_field):
+        assert template_replacer_dotted_field.ps.processed_count == 0
+        document = {'winlog': {'channel': 'System', 'provider_name': 'Test', 'event_id': 123},
+                    'dotted': {'bar': 'foo'}}
+
+        template_replacer_dotted_field.process(document)
+
+        assert document.get('dotted')
+        assert document['dotted'].get('message')
+        assert document['dotted']['message'] == 'Test %1 Test %2'
+        assert document['dotted']['bar'] == 'foo'
+
+    def test_replace_existing_dotted_message_dict_via_template(self,
+                                                               template_replacer_dotted_field):
+        assert template_replacer_dotted_field.ps.processed_count == 0
+        document = {'winlog': {'channel': 'System', 'provider_name': 'Test', 'event_id': 123},
+                    'dotted': {'message': {'foo': 'bar'}}}
+
+        template_replacer_dotted_field.process(document)
+
+        assert document.get('dotted')
+        assert document['dotted'].get('message')
+        assert document['dotted']['message'] == 'Test %1 Test %2'
+
+    def test_replace_incompatible_existing_dotted_message_parent_via_template(self,
+                                                                              template_replacer_dotted_field):
+        assert template_replacer_dotted_field.ps.processed_count == 0
+        document = {'winlog': {'channel': 'System', 'provider_name': 'Test', 'event_id': 123},
+                    'dotted': 'foo'}
+
+        with pytest.raises(TemplateReplacerError,
+                           match="Parent field 'dotted' of target field 'dotted.message' exists "
+                                 "and is not a dict!"):
+            template_replacer_dotted_field.process(document)
 
     def test_replace_with_additional_hyphen(self, template_replacer):
         assert template_replacer.ps.processed_count == 0

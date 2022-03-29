@@ -28,21 +28,11 @@ class TemplateReplacerError(BaseException):
         super().__init__(f'TemplateReplacer ({name}): {message}')
 
 
-class DuplicationError(TemplateReplacerError):
-    """Raise if field already exists."""
-
-    def __init__(self, name: str, skipped_fields: List[str]):
-        message = 'The following fields already existed and ' \
-                  'were not overwritten by the TemplateReplacer: '
-        message += ' '.join(skipped_fields)
-
-        super().__init__(name, message)
-
-
 class TemplateReplacer(RuleBasedProcessor):
     """Resolve values in documents by referencing a mapping list."""
 
-    def __init__(self, name: str, tree_config: str, template_path: str, pattern: dict, logger: Logger):
+    def __init__(self, name: str, tree_config: str, template_path: str, pattern: dict,
+                 logger: Logger):
         super().__init__(name, tree_config, logger)
         self.ps = ProcessorStats()
 
@@ -59,7 +49,8 @@ class TemplateReplacer(RuleBasedProcessor):
 
         for key, value in template.items():
             split_key = key.split(delimiter)
-            left, middle_and_right = split_key[:allow_delimiter_index], split_key[allow_delimiter_index:]
+            left, middle_and_right = split_key[:allow_delimiter_index], split_key[
+                                                                        allow_delimiter_index:]
             middle = middle_and_right[:-(len(self._fields) - allow_delimiter_index - 1)]
             right = middle_and_right[-(len(self._fields) - allow_delimiter_index - 1):]
             recombined_keys = left + ['-'.join(middle)] + right
@@ -144,11 +135,20 @@ class TemplateReplacer(RuleBasedProcessor):
                 return
 
         if _dict is not None:
-            if self._field_exists(event, self._target_field):
-                _event = event
-                for subfield in self._target_field_split[:-1]:
+            _event = event
+            for subfield in self._target_field_split[:-1]:
+                event_sub = _event.get(subfield)
+                if isinstance(event_sub, dict):
+                    _event = event_sub
+                elif event_sub is None:
+                    _event[subfield] = {}
                     _event = _event[subfield]
-                _event[self._target_field_split[-1]] = _dict
+                else:
+                    raise TemplateReplacerError(
+                        self._name,
+                        f"Parent field '{subfield}' of target field '{self._target_field}' "
+                        f"exists and is not a dict!")
+            _event[self._target_field_split[-1]] = _dict
 
     @staticmethod
     def _field_exists(event: dict, dotted_field: str) -> bool:
