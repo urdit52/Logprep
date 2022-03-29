@@ -192,7 +192,7 @@ Example
     :linenos:
 
     connector:
-      type: confluentkafka
+      type: confluentkafka_es
       bootstrapservers:
         - 127.0.0.1:9092
       consumer:
@@ -206,7 +206,7 @@ Example
         certfile:
         keyfile:
         password:
-    elasticsearch:
+      elasticsearch:
         host: 127.0.0.1
         port: 9200
         default_index: default_index
