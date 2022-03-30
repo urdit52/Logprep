@@ -12,8 +12,11 @@ from multiprocessing import current_process
 from logprep.processor.generic_adder.rule import GenericAdderRule
 from logprep.processor.generic_adder.mysql_connector import MySQLConnector
 from logprep.processor.base.processor import RuleBasedProcessor
-from logprep.processor.base.exceptions import (NotARulesDirectoryError, InvalidRuleDefinitionError,
-                                               InvalidRuleFileError)
+from logprep.processor.base.exceptions import (
+    NotARulesDirectoryError,
+    InvalidRuleDefinitionError,
+    InvalidRuleFileError,
+)
 
 from logprep.util.processor_stats import ProcessorStats
 from logprep.util.time_measurement import TimeMeasurement
@@ -23,16 +26,17 @@ class GenericAdderError(BaseException):
     """Base class for GenericAdder related exceptions."""
 
     def __init__(self, name: str, message: str):
-        super().__init__(f'GenericAdder ({name}): {message}')
+        super().__init__(f"GenericAdder ({name}): {message}")
 
 
 class DuplicationError(GenericAdderError):
     """Raise if field already exists."""
 
     def __init__(self, name: str, skipped_fields: List[str]):
-        message = 'The following fields already existed and ' \
-                  'were not overwritten by the GenericAdder: '
-        message += ' '.join(skipped_fields)
+        message = (
+            "The following fields already existed and " "were not overwritten by the GenericAdder: "
+        )
+        message += " ".join(skipped_fields)
 
         super().__init__(name, message)
 
@@ -101,8 +105,9 @@ class GenericAdder(RuleBasedProcessor):
             for root, _, files in walk(path):
                 json_files = []
                 for file in files:
-                    if (file.endswith('.json') or file.endswith('.yml')) and not file.endswith(
-                            '_test.json'):
+                    if (file.endswith(".json") or file.endswith(".yml")) and not file.endswith(
+                        "_test.json"
+                    ):
                         json_files.append(file)
                 for file in json_files:
                     rules = self._load_rules_from_file(join(root, file))
@@ -110,10 +115,13 @@ class GenericAdder(RuleBasedProcessor):
                         self._tree.add_rule(rule, self._logger)
 
         if self._logger.isEnabledFor(DEBUG):
-            self._logger.debug(f'{self.describe()} loaded {self._tree.rule_counter} rules '
-                               f'({current_process().name})')
+            self._logger.debug(
+                f"{self.describe()} loaded {self._tree.rule_counter} rules "
+                f"({current_process().name})"
+            )
 
         self.ps.setup_rules([None] * self._tree.rule_counter)
+
     # pylint: enable=arguments-differ
 
     def _load_rules_from_file(self, path: str):
@@ -149,9 +157,9 @@ class GenericAdder(RuleBasedProcessor):
             The description of the generic adder.
 
         """
-        return f'GenericAdder ({self._name})'
+        return f"GenericAdder ({self._name})"
 
-    @TimeMeasurement.measure_time('generic_adder')
+    @TimeMeasurement.measure_time("generic_adder")
     def process(self, event: dict):
         """Process an event by the generic adder.
 
@@ -176,7 +184,7 @@ class GenericAdder(RuleBasedProcessor):
         for rule in self._tree.get_matching_rules(event):
             begin = time()
             self._apply_rules(event, rule)
-            processing_time = float('{:.10f}'.format(time() - begin))
+            processing_time = float("{:.10f}".format(time() - begin))
             idx = self._tree.get_rule_id(rule)
             self.ps.update_per_rule(idx, processing_time)
 
@@ -222,7 +230,7 @@ class GenericAdder(RuleBasedProcessor):
                     for item in to_add_from_db:
                         if rule.db_destination_prefix:
                             if not item[0].startswith(rule.db_destination_prefix):
-                                item[0] = f'{rule.db_destination_prefix}.{item[0]}'
+                                item[0] = f"{rule.db_destination_prefix}.{item[0]}"
                         items_to_add.append(item)
         else:
             # Use items from rule definition and/or file
@@ -230,7 +238,7 @@ class GenericAdder(RuleBasedProcessor):
 
         # Add the items to the event
         for dotted_field, value in items_to_add:
-            keys = dotted_field.split('.')
+            keys = dotted_field.split(".")
             dict_ = event
             for idx, key in enumerate(keys):
                 if key not in dict_:
@@ -275,7 +283,7 @@ class GenericAdder(RuleBasedProcessor):
             The result type reflects the possible types of values that can be expected in the dict.
 
         """
-        fields = dotted_field.split('.')
+        fields = dotted_field.split(".")
         dict_ = event
         for field in fields:
             if field in dict_:

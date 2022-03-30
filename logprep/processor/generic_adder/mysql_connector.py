@@ -28,20 +28,21 @@ class MySQLConnector:
         self._logger = logger
 
         self.con = db.connect(
-            user=sql_config['user'],
-            password=sql_config['password'],
-            host=sql_config['host'],
-            database=sql_config['database'],
-            port=sql_config.get('port', 3306))
+            user=sql_config["user"],
+            password=sql_config["password"],
+            host=sql_config["host"],
+            database=sql_config["database"],
+            port=sql_config.get("port", 3306),
+        )
 
         self.cur = self.con.cursor()
 
-        self.target_column = sql_config['target_column']
-        self._add_target_column = sql_config.get('add_target_column', False)
+        self.target_column = sql_config["target_column"]
+        self._add_target_column = sql_config.get("add_target_column", False)
 
-        self.table_name = sql_config['table']
+        self.table_name = sql_config["table"]
 
-        self._timer = sql_config.get('timer', 60*3)
+        self._timer = sql_config.get("timer", 60 * 3)
         self._last_check = 0
         self._last_table_checksum = None
 
@@ -81,7 +82,7 @@ class MySQLConnector:
             This value changes if the table or it's contents change.
 
         """
-        statement = f'CHECKSUM TABLE {self.table_name}'
+        statement = f"CHECKSUM TABLE {self.table_name}"
         self.cur.execute(statement)
         checksum = next(self.cur)[-1]
         self.con.commit()
@@ -106,7 +107,7 @@ class MySQLConnector:
         target_col = 0
 
         try:
-            statement = f'desc {self.table_name}'
+            statement = f"desc {self.table_name}"
             self.cur.execute(statement)
             col_names = []
             for idx, column_desc in enumerate(self.cur):
@@ -114,19 +115,29 @@ class MySQLConnector:
                 if column_desc[0] == self.target_column:
                     target_col = idx
 
-            statement = f'SELECT * FROM {self.table_name}'
+            statement = f"SELECT * FROM {self.table_name}"
             self.cur.execute(statement)
 
             for row_vals in self.cur:
                 if self._add_target_column:
-                    column_dict = tuple(([col_names[idx], col] for idx, col in enumerate(row_vals)
-                                         if col_names[idx].upper() != 'ID'))
+                    column_dict = tuple(
+                        (
+                            [col_names[idx], col]
+                            for idx, col in enumerate(row_vals)
+                            if col_names[idx].upper() != "ID"
+                        )
+                    )
                 else:
-                    column_dict = tuple(([col_names[idx], col] for idx, col in enumerate(row_vals)
-                                         if idx != target_col and col_names[idx].upper() != 'ID'))
+                    column_dict = tuple(
+                        (
+                            [col_names[idx], col]
+                            for idx, col in enumerate(row_vals)
+                            if idx != target_col and col_names[idx].upper() != "ID"
+                        )
+                    )
                 table[row_vals[target_col].upper()] = column_dict
 
             return table
         except db.Error as e:
-            self._logger.warning(f'Error retrieving entry from database: {e}')
+            self._logger.warning(f"Error retrieving entry from database: {e}")
             return {}

@@ -28,9 +28,10 @@ class GenericAdderFactory(BaseFactory):
         """
         GenericAdderFactory._check_configuration(configuration)
 
-        generic_adder = GenericAdder(name, configuration.get('tree_config'),
-                                     configuration.get('sql_config'), logger)
-        generic_adder.add_rules_from_directory(configuration['rules'])
+        generic_adder = GenericAdder(
+            name, configuration.get("tree_config"), configuration.get("sql_config"), logger
+        )
+        generic_adder.add_rules_from_directory(configuration["rules"])
 
         return generic_adder
 
@@ -46,5 +47,4 @@ class GenericAdderFactory(BaseFactory):
            Parsed configuration YML used for the generic adder.
 
         """
-        GenericAdderFactory._check_common_configuration('generic_adder', ['rules'],
-                                                        configuration)
+        GenericAdderFactory._check_common_configuration("generic_adder", ["rules"], configuration)
