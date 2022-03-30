@@ -10,8 +10,11 @@ from typing import List
 
 from hyperscan import Database, HS_FLAG_SINGLEMATCH, HS_FLAG_CASELESS, loadb, dumpb
 
-from logprep.processor.base.exceptions import (NotARulesDirectoryError, InvalidRuleDefinitionError,
-                                               InvalidRuleFileError)
+from logprep.processor.base.exceptions import (
+    NotARulesDirectoryError,
+    InvalidRuleDefinitionError,
+    InvalidRuleFileError,
+)
 from logprep.processor.base.processor import RuleBasedProcessor
 from logprep.processor.generic_resolver.rule import GenericResolverRule
 from logprep.util.processor_stats import ProcessorStats
@@ -22,16 +25,18 @@ class GenericResolverError(BaseException):
     """Base class for GenericResolver related exceptions."""
 
     def __init__(self, name: str, message: str):
-        super().__init__(f'GenericResolver ({name}): {message}')
+        super().__init__(f"GenericResolver ({name}): {message}")
 
 
 class DuplicationError(GenericResolverError):
     """Raise if field already exists."""
 
     def __init__(self, name: str, skipped_fields: List[str]):
-        message = 'The following fields already existed and ' \
-                  'were not overwritten by the Generic Resolver: '
-        message += ' '.join(skipped_fields)
+        message = (
+            "The following fields already existed and "
+            "were not overwritten by the Generic Resolver: "
+        )
+        message += " ".join(skipped_fields)
 
         super().__init__(name, message)
 
@@ -61,8 +66,9 @@ class GenericResolver(RuleBasedProcessor):
             for root, _, files in walk(path):
                 json_files = []
                 for file in files:
-                    if (file.endswith('.json') or file.endswith('.yml')) and not file.endswith(
-                            '_test.json'):
+                    if (file.endswith(".json") or file.endswith(".yml")) and not file.endswith(
+                        "_test.json"
+                    ):
                         json_files.append(file)
                 for file in json_files:
                     rules = self._load_rules_from_file(join(root, file))
@@ -70,10 +76,13 @@ class GenericResolver(RuleBasedProcessor):
                         self._tree.add_rule(rule, self._logger)
 
         if self._logger.isEnabledFor(DEBUG):
-            self._logger.debug(f'{self.describe()} loaded {self._tree.rule_counter} rules '
-                               f'({current_process().name})')
+            self._logger.debug(
+                f"{self.describe()} loaded {self._tree.rule_counter} rules "
+                f"({current_process().name})"
+            )
 
         self.ps.setup_rules([None] * self._tree.rule_counter)
+
     # pylint: enable=arguments-differ
 
     def _load_rules_from_file(self, path: str):
@@ -83,16 +92,16 @@ class GenericResolver(RuleBasedProcessor):
             raise InvalidRuleFileError(self._name, path, str(error)) from error
 
     def describe(self) -> str:
-        return f'GenericResolver ({self._name})'
+        return f"GenericResolver ({self._name})"
 
-    @TimeMeasurement.measure_time('generic_resolver')
+    @TimeMeasurement.measure_time("generic_resolver")
     def process(self, event: dict):
         self._event = event
 
         for rule in self._tree.get_matching_rules(event):
             begin = time()
             self._apply_rules(event, rule)
-            processing_time = float('{:.10f}'.format(time() - begin))
+            processing_time = float("{:.10f}".format(time() - begin))
             idx = self._tree.get_rule_id(rule)
             self.ps.update_per_rule(idx, processing_time)
 
@@ -104,7 +113,7 @@ class GenericResolver(RuleBasedProcessor):
         hyperscan_db, pattern_id_to_dest_val_map = self._get_hyperscan_database(rule)
 
         for resolve_source, resolve_target in rule.field_mapping.items():
-            keys = resolve_target.split('.')
+            keys = resolve_target.split(".")
             src_val = self._get_dotted_field_value(event, resolve_source)
 
             if src_val:
@@ -121,18 +130,31 @@ class GenericResolver(RuleBasedProcessor):
                         if key not in dict_:
                             if idx == len(keys) - 1:
                                 if rule.append_to_list:
-                                    dict_[key] = dict_.get('key', [])
-                                    dict_[key].append(pattern_id_to_dest_val_map[result[result.index(min(result))]])
+                                    dict_[key] = dict_.get("key", [])
+                                    dict_[key].append(
+                                        pattern_id_to_dest_val_map[
+                                            result[result.index(min(result))]
+                                        ]
+                                    )
                                 else:
-                                    dict_[key] = pattern_id_to_dest_val_map[result[result.index(min(result))]]
+                                    dict_[key] = pattern_id_to_dest_val_map[
+                                        result[result.index(min(result))]
+                                    ]
                                 break
                             dict_[key] = dict()
                         if isinstance(dict_[key], dict):
                             dict_ = dict_[key]
                         else:
                             if rule.append_to_list and isinstance(dict_[key], list):
-                                if pattern_id_to_dest_val_map[result[result.index(min(result))]] not in dict_[key]:
-                                    dict_[key].append(pattern_id_to_dest_val_map[result[result.index(min(result))]])
+                                if (
+                                    pattern_id_to_dest_val_map[result[result.index(min(result))]]
+                                    not in dict_[key]
+                                ):
+                                    dict_[key].append(
+                                        pattern_id_to_dest_val_map[
+                                            result[result.index(min(result))]
+                                        ]
+                                    )
                             else:
                                 conflicting_fields.append(keys[idx])
 
@@ -153,15 +175,18 @@ class GenericResolver(RuleBasedProcessor):
                     self._save_database(db, database_id)
 
             self._hyperscan_databases[database_id] = {}
-            self._hyperscan_databases[database_id]['db'] = db
-            self._hyperscan_databases[database_id]['value_mapping'] = value_mapping
+            self._hyperscan_databases[database_id]["db"] = db
+            self._hyperscan_databases[database_id]["value_mapping"] = value_mapping
 
-        return self._hyperscan_databases[database_id]['db'], self._hyperscan_databases[database_id]['value_mapping']
+        return (
+            self._hyperscan_databases[database_id]["db"],
+            self._hyperscan_databases[database_id]["value_mapping"],
+        )
 
     def _load_database(self, database_id, resolve_list):
         value_mapping = {}
 
-        with open(self._hyperscan_database_path + "/" + database_id + '.db', "rb") as f:
+        with open(self._hyperscan_database_path + "/" + database_id + ".db", "rb") as f:
             data = f.read()
 
         for idx, pattern in enumerate(resolve_list.keys()):
@@ -173,7 +198,7 @@ class GenericResolver(RuleBasedProcessor):
         _create_hyperscan_dbs_dir(self._hyperscan_database_path)
         serialized_db = dumpb(database)
 
-        with open(self._hyperscan_database_path + "/" + database_id + '.db', "wb") as f:
+        with open(self._hyperscan_database_path + "/" + database_id + ".db", "wb") as f:
             f.write(serialized_db)
 
     def _create_database(self, resolve_list):
@@ -182,16 +207,14 @@ class GenericResolver(RuleBasedProcessor):
         db_patterns = []
 
         for idx, pattern in enumerate(resolve_list.keys()):
-            db_patterns += [(pattern.encode('utf-8'), idx, HS_FLAG_SINGLEMATCH | HS_FLAG_CASELESS)]
+            db_patterns += [(pattern.encode("utf-8"), idx, HS_FLAG_SINGLEMATCH | HS_FLAG_CASELESS)]
             value_mapping[idx] = resolve_list[pattern]
 
         if not db_patterns:
-            raise GenericResolverError(self._name, 'No patter to compile for hyperscan database!')
+            raise GenericResolverError(self._name, "No patter to compile for hyperscan database!")
 
         expressions, ids, flags = zip(*db_patterns)
-        database.compile(
-            expressions=expressions, ids=ids, elements=len(db_patterns), flags=flags
-        )
+        database.compile(expressions=expressions, ids=ids, elements=len(db_patterns), flags=flags)
 
         return database, value_mapping
 
