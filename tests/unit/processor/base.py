@@ -10,8 +10,7 @@ import pytest
 
 
 from logprep.framework.rule_tree.rule_tree import RuleTree
-from logprep.processor.base.processor import (ProcessingWarning,
-                                              RuleBasedProcessor)
+from logprep.processor.base.processor import ProcessingWarning, RuleBasedProcessor
 
 
 class BaseProcessorTestCase(ABC):
@@ -46,6 +45,7 @@ class BaseProcessorTestCase(ABC):
         """
         sets the rules from the given rules_dirs
         """
+        assert isinstance(rules_dirs, list)
         specific_rules = list()
 
         for specific_rules_dir in rules_dirs:
